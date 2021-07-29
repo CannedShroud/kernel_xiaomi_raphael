@@ -533,8 +533,8 @@ static int __init isolated_cpu_setup(char *str)
 
 	alloc_bootmem_cpumask_var(&cpu_isolated_map);
 	ret = cpulist_parse(str, cpu_isolated_map);
-	if (ret || cpumask_last(cpu_isolated_map) >= nr_cpu_ids) {
-		pr_err("sched: Error, all isolcpus= values must be between 0 and %u - ignoring them.\n", nr_cpu_ids-1);
+	if (ret) {
+		pr_err("sched: Error, all isolcpus= values must be between 0 and %u\n", nr_cpu_ids);
 		return 0;
 	}
 	return 1;
@@ -1880,12 +1880,12 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 
 		sd = *per_cpu_ptr(d.sd, i);
 
-		if ((max_cpu < 0) || (arch_scale_cpu_capacity(NULL, i) >
-				arch_scale_cpu_capacity(NULL, max_cpu)))
+		if ((max_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig >
+		    cpu_rq(max_cpu)->cpu_capacity_orig))
 			WRITE_ONCE(d.rd->max_cap_orig_cpu, i);
 
-		if ((min_cpu < 0) || (arch_scale_cpu_capacity(NULL, i) <
-				arch_scale_cpu_capacity(NULL, min_cpu)))
+		if ((min_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig <
+		    cpu_rq(min_cpu)->cpu_capacity_orig))
 			WRITE_ONCE(d.rd->min_cap_orig_cpu, i);
 
 		cpu_attach_domain(sd, d.rd, i);
@@ -1896,26 +1896,14 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
 		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
 
-		if ((arch_scale_cpu_capacity(NULL, i)
-				!=  arch_scale_cpu_capacity(NULL, min_cpu)) &&
-				(arch_scale_cpu_capacity(NULL, i)
-				!=  arch_scale_cpu_capacity(NULL, max_cpu))) {
+		if ((cpu_rq(i)->cpu_capacity_orig
+				!=  cpu_rq(min_cpu)->cpu_capacity_orig) &&
+			(cpu_rq(i)->cpu_capacity_orig
+				!=  cpu_rq(max_cpu)->cpu_capacity_orig)) {
 			WRITE_ONCE(d.rd->mid_cap_orig_cpu, i);
 			break;
 		}
 	}
-
-	/*
-	 * The max_cpu_capacity reflect the original capacity which does not
-	 * change dynamically. So update the max cap CPU and its capacity
-	 * here.
-	 */
-	if (d.rd->max_cap_orig_cpu != -1) {
-		d.rd->max_cpu_capacity.cpu = d.rd->max_cap_orig_cpu;
-		d.rd->max_cpu_capacity.val = arch_scale_cpu_capacity(NULL,
-						d.rd->max_cap_orig_cpu);
-	}
-
 	rcu_read_unlock();
 
 	if (!cpumask_empty(cpu_map))

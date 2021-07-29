@@ -26,6 +26,7 @@
 #include <linux/sched/prio.h>
 #include <linux/signal_types.h>
 #include <linux/mm_types_task.h>
+#include <linux/mm_event.h>
 #include <linux/task_io_accounting.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
@@ -106,22 +107,6 @@ struct task_group;
 #define task_is_stopped(task)		((task->state & __TASK_STOPPED) != 0)
 
 #define task_is_stopped_or_traced(task)	((task->state & (__TASK_STOPPED | __TASK_TRACED)) != 0)
-
-#define task_contributes_to_load(task)	((task->state & TASK_UNINTERRUPTIBLE) != 0 && \
-					 (task->flags & PF_FROZEN) == 0 && \
-					 (task->state & TASK_NOLOAD) == 0)
-
-/*
- * Enum for display driver to provide varying refresh rates
- */
-enum fps {
-	FPS0 = 0,
-	FPS30 = 30,
-	FPS48 = 48,
-	FPS60 = 60,
-	FPS90 = 90,
-	FPS120 = 120,
-};
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 
@@ -568,9 +553,8 @@ extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
 					  u32 fmax);
 extern int sched_set_boost(int enable);
 extern void free_task_load_ptrs(struct task_struct *p);
-extern void sched_set_refresh_rate(enum fps fps);
 
-#define RAVG_HIST_SIZE_MAX 5
+#define RAVG_HIST_SIZE_MAX  5
 #define NUM_BUSY_BUCKETS 10
 
 /* ravg represents frequency scaled cpu-demand of tasks */
@@ -614,12 +598,11 @@ struct ravg {
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
+	u16 active_windows;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];
 	u16 demand_scaled;
 	u16 pred_demand_scaled;
-	u64 active_time;
-	u64 last_win_size;
 };
 #else
 static inline void sched_exit(struct task_struct *p) { }
@@ -638,8 +621,6 @@ static inline void free_task_load_ptrs(struct task_struct *p) { }
 
 static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
 					u32 fmin, u32 fmax) { }
-
-static inline void sched_set_refresh_rate(enum fps fps) { }
 #endif /* CONFIG_SCHED_WALT */
 
 struct sched_rt_entity {
@@ -812,7 +793,6 @@ struct task_struct {
 	struct list_head grp_list;
 	u64 cpu_cycles;
 	bool misfit;
-	u32 unfilter;
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED
@@ -881,7 +861,6 @@ struct task_struct {
 	unsigned			sched_reset_on_fork:1;
 	unsigned			sched_contributes_to_load:1;
 	unsigned			sched_migrated:1;
-	unsigned			sched_remote_wakeup:1;
 #ifdef CONFIG_PSI
 	unsigned			sched_psi_wake_requeue:1;
 #endif
@@ -890,6 +869,21 @@ struct task_struct {
 	unsigned			:0;
 
 	/* Unserialized, strictly 'current' */
+
+	/*
+	 * This field must not be in the scheduler word above due to wakelist
+	 * queueing no longer being serialized by p->on_cpu. However:
+	 *
+	 * p->XXX = X;			ttwu()
+	 * schedule()			  if (p->on_rq && ..) // false
+	 *   smp_mb__after_spinlock();	  if (smp_load_acquire(&p->on_cpu) && //true
+	 *   deactivate_task()		      ttwu_queue_wakelist())
+	 *     p->on_rq = 0;			p->sched_remote_wakeup = Y;
+	 *
+	 * guarantees all stores of 'current' are visible before
+	 * ->sched_remote_wakeup gets used, so it can be in this word.
+	 */
+	unsigned			sched_remote_wakeup:1;
 
 	/* Bit to tell LSMs we're in execve(): */
 	unsigned			in_execve:1;
@@ -909,6 +903,8 @@ struct task_struct {
 #ifdef CONFIG_CGROUPS
 	/* disallow userland-initiated cgroup migration */
 	unsigned			no_cgroup_migration:1;
+	/* task is frozen/stopped (used by the cgroup freezer) */
+	unsigned			frozen:1;
 #endif
 
 	unsigned long			atomic_flags; /* Flags requiring atomic access. */
@@ -1082,7 +1078,10 @@ struct task_struct {
 	/* Deadlock detection and priority inheritance handling: */
 	struct rt_mutex_waiter		*pi_blocked_on;
 #endif
-
+#ifdef CONFIG_MM_EVENT_STAT
+	struct mm_event_task	mm_event[MM_TYPE_NUM];
+	unsigned long		next_period;
+#endif
 #ifdef CONFIG_DEBUG_MUTEXES
 	/* Mutex deadlock detection: */
 	struct mutex_waiter		*blocked_on;
@@ -1391,8 +1390,6 @@ struct task_struct {
 	 */
 	randomized_struct_fields_end
 
-	struct fuse_package *fpack;
-
 	/* CPU-specific state of this task: */
 	struct thread_struct		thread;
 
@@ -1402,12 +1399,6 @@ struct task_struct {
 	 *
 	 * Do not put anything below here!
 	 */
-};
-
-struct fuse_package {
-	bool fuse_open_req;
-	struct file *filp;
-	char *iname;
 };
 
 static inline struct pid *task_pid(struct task_struct *task)
@@ -1998,7 +1989,6 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 # define vcpu_is_preempted(cpu)	false
 #endif
 
-extern long msm_sched_setaffinity(pid_t pid, struct cpumask *new_mask);
 extern long sched_setaffinity(pid_t pid, const struct cpumask *new_mask);
 extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 

@@ -161,7 +161,7 @@ static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 static inline bool use_pelt(void)
 {
 #ifdef CONFIG_SCHED_WALT
-	return false;
+	return (!sysctl_sched_use_walt_cpu_util || walt_disabled);
 #else
 	return true;
 #endif
@@ -181,7 +181,7 @@ static void sugov_track_cycles(struct sugov_policy *sg_policy,
 {
 	u64 delta_ns, cycles;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	/* Track cycles in current window */
@@ -199,7 +199,7 @@ static void sugov_calc_avg_cap(struct sugov_policy *sg_policy, u64 curr_ws,
 	u64 last_ws = sg_policy->last_ws;
 	unsigned int avg_freq;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	BUG_ON(curr_ws < last_ws);
@@ -397,7 +397,7 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 	unsigned long cpu_util = sg_cpu->util;
 	bool is_hiload;
 
-	if (use_pelt())
+	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
 	is_hiload = (cpu_util >= mult_frac(sg_policy->avg_cap,
@@ -460,8 +460,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 				   sg_policy->policy->cur);
 		trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util,
 				sg_policy->avg_cap, max, sg_cpu->walt_load.nl,
-				sg_cpu->walt_load.pl,
-				sg_cpu->walt_load.rtgb_active, flags);
+				sg_cpu->walt_load.pl, flags);
 
 		sugov_iowait_boost(sg_cpu, &util, &max);
 		sugov_walt_adjust(sg_cpu, &util, &max);
@@ -570,10 +569,9 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	sugov_calc_avg_cap(sg_policy, sg_cpu->walt_load.ws,
 			   sg_policy->policy->cur);
 
-		trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util,
-				sg_policy->avg_cap, max, sg_cpu->walt_load.nl,
-				sg_cpu->walt_load.pl,
-				sg_cpu->walt_load.rtgb_active, flags);
+	trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util, sg_policy->avg_cap,
+				max, sg_cpu->walt_load.nl,
+				sg_cpu->walt_load.pl, flags);
 
 	if (sugov_should_update_freq(sg_policy, time) &&
 		!(flags & SCHED_CPUFREQ_CONTINUE)) {
