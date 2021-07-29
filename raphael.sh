@@ -53,7 +53,7 @@ MANUFACTURERINFO="Xiaomi"
 COMPILER=GCC
 
 # Kernel is LTO
-LTO=1
+LTO=0
 
 # Clean source prior building. 1 is NO(default) | 0 is YES
 INCREMENTAL=1
