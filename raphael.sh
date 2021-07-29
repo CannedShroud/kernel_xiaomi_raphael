@@ -49,11 +49,11 @@ DEFCONFIG=raphael_defconfig
 MANUFACTURERINFO="Xiaomi"
 
 # Specify compiler. 
-# 'clang' or 'gcc'
-COMPILER=gcc
+# 'CLANG' or 'GCC'
+COMPILER=GCC
 
 # Kernel is LTO
-LTO=0
+LTO=1
 
 # Clean source prior building. 1 is NO(default) | 0 is YES
 INCREMENTAL=1
@@ -92,14 +92,14 @@ DATE=$(TZ=Asia/Kolkata date +"%Y%m%d")
 
  clone() {
 	echo " "
-	if [ $COMPILER = "clang" ]
+	if [ $COMPILER = "CLANG" ]
 	then
 		msg "|| Cloning toolchain ||"
 		git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
 		# Toolchain Directory defaults to clang-llvm
 		TC_DIR=$KERNEL_DIR/clang
-	elif [ $COMPILER = "gcc" ]
+	elif [ $COMPILER = "GCC" ]
 	then
 		msg "|| Cloning GCC ||"
 		git clone https://github.com/mvaisakh/gcc-arm64.git gcc64 --depth=1 -b gcc-new
@@ -125,19 +125,24 @@ exports() {
 	export ARCH=arm64
 	export SUBARCH=arm64
 
-	if [ $COMPILER = "clang" ]
+	if [ $COMPILER = "CLANG" ]
 	then
 		KBUILD_COMPILER_STRING=$("$TC_DIR"/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 		PATH=$TC_DIR/bin/:$PATH
-	elif [ $COMPILER = "gcc" ]
+	elif [ $COMPILER = "GCC" ]
 	then
 		KBUILD_COMPILER_STRING=$("$GCC64_DIR"/bin/aarch64-elf-gcc --version | head -n 1)
 		PATH=$GCC64_DIR/bin/:$GCC32_DIR/bin/:/usr/bin:$PATH
 	fi
 
 	if [ $LTO = "1" ];then
-		export LD=ld.lld
-        export LD_LIBRARY_PATH=$TC_DIR/lib
+		if [ $COMPILER = "CLANG" ]
+		then
+			export LD=ld.lld
+    	    export LD_LIBRARY_PATH=$TC_DIR/lib
+		else 
+			export LD=aarch64-elf-ld
+		fi
 	fi
 
 	export PATH KBUILD_COMPILER_STRING
@@ -149,9 +154,12 @@ exports() {
 
 # Function to replace defconfig versioning
 setversioning() {
-    # For staging branchc
-    KERNELNAME="ProjectLighthouseKernel-$DATE"
-    # Export our new localversion and zipnames
+	if [ $LTO = 0 ]
+	then
+	    KERNELNAME="ProjectLighthouseKernel-$COMPILER-$DATE"
+	else 
+	    KERNELNAME="ProjectLighthouseKernel-$COMPILER-LTO-$DATE"
+	fi
     export KERNELNAME
     export ZIPNAME="$KERNELNAME.zip"
 }
@@ -178,7 +186,7 @@ build_kernel() {
 
 	BUILD_START=$(date +"%s")
 	
-	if [ $COMPILER = "clang" ]
+	if [ $COMPILER = "CLANG" ]
 	then
 		make -j"$PROCS" O=out \
 				CROSS_COMPILE=aarch64-linux-gnu- \
@@ -189,7 +197,7 @@ build_kernel() {
 				STRIP=llvm-strip
 	fi
 
-	if [ $COMPILER = "gcc" ]
+	if [ $COMPILER = "GCC" ]
 	then
 		make -j"$PROCS" O=out \
 				CROSS_COMPILE_ARM32=arm-eabi- \
