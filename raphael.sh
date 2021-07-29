@@ -50,7 +50,7 @@ MANUFACTURERINFO="Xiaomi"
 
 # Specify compiler. 
 # 'CLANG' or 'GCC'
-COMPILER=GCC
+COMPILER=CLANG
 
 # Kernel is LTO
 LTO=0
