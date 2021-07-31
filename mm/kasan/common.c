@@ -3,6 +3,7 @@
  * This file contains common generic and tag-based KASAN code.
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by
@@ -362,6 +363,84 @@ void kasan_poison_object_data(struct kmem_cache *cache, void *object)
  */
 static u8 assign_tag(struct kmem_cache *cache, const void *object,
 			bool init, bool keep_tag)
+{
+	/*
+	 * 1. When an object is kmalloc()'ed, two hooks are called:
+	 *    kasan_slab_alloc() and kasan_kmalloc(). We assign the
+	 *    tag only in the first one.
+	 * 2. We reuse the same tag for krealloc'ed objects.
+	 */
+	if (keep_tag)
+		return get_tag(object);
+
+	/*
+	 * If the cache neither has a constructor nor has SLAB_TYPESAFE_BY_RCU
+	 * set, assign a tag when the object is being allocated (init == false).
+	 */
+	if (!cache->ctor && !(cache->flags & SLAB_TYPESAFE_BY_RCU))
+		return init ? KASAN_TAG_KERNEL : random_tag();
+
+	/* For caches that either have a constructor or SLAB_TYPESAFE_BY_RCU: */
+#ifdef CONFIG_SLAB
+	/* For SLAB assign tags based on the object index in the freelist. */
+	return (u8)obj_to_index(cache, virt_to_page(object), (void *)object);
+#else
+	/*
+	 * For SLUB assign a random tag during slab creation, otherwise reuse
+	 * the already assigned tag.
+	 */
+	return init ? random_tag() : get_tag(object);
+#endif
+}
+static inline int in_irqentry_text(unsigned long ptr)
+{
+	return (ptr >= (unsigned long)&__irqentry_text_start &&
+		ptr < (unsigned long)&__irqentry_text_end) ||
+		(ptr >= (unsigned long)&__softirqentry_text_start &&
+		 ptr < (unsigned long)&__softirqentry_text_end);
+}
+
+static inline void filter_irq_stacks(struct stack_trace *trace)
+{
+	int i;
+
+	if (!trace->nr_entries)
+		return;
+	for (i = 0; i < trace->nr_entries; i++)
+		if (in_irqentry_text(trace->entries[i])) {
+			/* Include the irqentry function into the stack. */
+			trace->nr_entries = i + 1;
+			break;
+		}
+}
+
+static inline depot_stack_handle_t save_stack(gfp_t flags)
+{
+	unsigned long entries[KASAN_STACK_DEPTH];
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.entries = entries,
+		.max_entries = KASAN_STACK_DEPTH,
+		.skip = 0
+	};
+
+	save_stack_trace(&trace);
+	filter_irq_stacks(&trace);
+	if (trace.nr_entries != 0 &&
+	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
+		trace.nr_entries--;
+
+	return depot_save_stack(&trace, flags, 0);
+}
+
+static inline void set_track(struct kasan_track *track, gfp_t flags)
+{
+	track->pid = current->pid;
+	track->stack = save_stack(flags);
+}
+
+struct kasan_alloc_meta *get_alloc_info(struct kmem_cache *cache,
+					const void *object)
 {
 	/*
 	 * 1. When an object is kmalloc()'ed, two hooks are called:

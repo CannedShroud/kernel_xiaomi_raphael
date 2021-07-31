@@ -349,6 +349,69 @@ static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
 
+/*
+ * logs all the wake up reasons to the kernel
+ * stores the irqs to expose them to the userspace via sysfs
+ */
+void log_wakeup_reason(int irq)
+{
+	struct irq_desc *desc;
+        unsigned long flags;
+
+	desc = irq_to_desc(irq);
+	if (desc && desc->action && desc->action->name)
+		printk(KERN_INFO "Resume caused by IRQ %d, %s\n", irq,
+				desc->action->name);
+	else
+		printk(KERN_INFO "Resume caused by IRQ %d\n", irq);
+
+	spin_lock_irqsave(&resume_reason_lock, flags);
+	if (irqcount == MAX_WAKEUP_REASON_IRQS) {
+		spin_unlock_irqrestore(&resume_reason_lock, flags);
+		printk(KERN_WARNING "Resume caused by more than %d IRQs\n",
+				MAX_WAKEUP_REASON_IRQS);
+		return;
+	}
+
+	irq_list[irqcount++] = irq;
+	spin_unlock_irqrestore(&resume_reason_lock, flags);
+}
+
+int check_wakeup_reason(int irq)
+{
+	int irq_no;
+	int ret = false;
+
+	spin_lock(&resume_reason_lock);
+	for (irq_no = 0; irq_no < irqcount; irq_no++)
+		if (irq_list[irq_no] == irq) {
+			ret = true;
+			break;
+	}
+	spin_unlock(&resume_reason_lock);
+	return ret;
+}
+
+void log_suspend_abort_reason(const char *fmt, ...)
+{
+	va_list args;
+        unsigned long flags;
+
+	spin_lock_irqsave(&resume_reason_lock, flags);
+
+	//Suspend abort reason has already been logged.
+	if (suspend_abort) {
+		spin_unlock_irqrestore(&resume_reason_lock, flags);
+		return;
+	}
+
+	suspend_abort = true;
+	va_start(args, fmt);
+	vsnprintf(abort_reason, MAX_SUSPEND_ABORT_LEN, fmt, args);
+	va_end(args);
+	spin_unlock_irqrestore(&resume_reason_lock, flags);
+}
+
 /* Detects a suspend and clears all the previous wake up reasons*/
 static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		unsigned long pm_event, void *unused)
