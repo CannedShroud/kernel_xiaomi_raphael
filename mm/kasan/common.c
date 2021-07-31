@@ -3,6 +3,7 @@
  * This file contains common generic and tag-based KASAN code.
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by

@@ -74,7 +74,6 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = JPEG_VOTE;
-	axi_vote.compressed_bw_ab = JPEG_VOTE;
 	axi_vote.uncompressed_bw = JPEG_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
