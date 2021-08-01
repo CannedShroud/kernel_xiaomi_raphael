@@ -805,6 +805,38 @@ static int smblib_usb_pd_adapter_allowance_override(struct smb_charger *chg,
 	return rc;
 }
 
+static int smblib_set_adapter_allowance(struct smb_charger *chg,
+					u8 allowed_voltage)
+{
+	int rc = 0;
+
+	/* PMI632 only support max. 9V */
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE) {
+		switch (allowed_voltage) {
+		case USBIN_ADAPTER_ALLOW_12V:
+		case USBIN_ADAPTER_ALLOW_9V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
+			break;
+		case USBIN_ADAPTER_ALLOW_5V_OR_12V:
+		case USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_OR_9V;
+			break;
+		case USBIN_ADAPTER_ALLOW_5V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
+			break;
+		}
+	}
+
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
+			allowed_voltage, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 #define MICRO_5V	5000000
 #define MICRO_9V	9000000
 #define MICRO_12V	12000000
@@ -7938,9 +7970,8 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 				dev_err(chg->dev, "Couldn't set dc voltage to 5 V rc=%d\n",
 					rc);
 			mutex_unlock(&chg->smb_lock);
-*/
-		}
 		schedule_work(&chg->dcin_aicl_work);
+*/
 	} else {
 		vote(chg->awake_votable, DC_AWAKE_VOTER, false, 0);
 		vote(chg->dc_icl_votable, DCIN_ADAPTER_VOTER, true, 100000);

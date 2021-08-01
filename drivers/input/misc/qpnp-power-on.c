@@ -551,8 +551,7 @@ static ssize_t debounce_us_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(debounce_us);
 
-static struct qpnp_pon_config *
-qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
+static struct qpnp_pon_config *qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
 {
 	int i;
 
@@ -1093,17 +1092,17 @@ static int qpnp_pon_store_and_clear_warm_reset(struct qpnp_pon *pon)
 	return 0;
 }
 
-static struct qpnp_pon_config *qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
-{
-	int i;
+// static struct qpnp_pon_config *qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
+// {
+// 	int i;
 
-	for (i = 0; i < pon->num_pon_config; i++) {
-		if (pon_type == pon->pon_cfg[i].pon_type)
-			return &pon->pon_cfg[i];
-	}
+// 	for (i = 0; i < pon->num_pon_config; i++) {
+// 		if (pon_type == pon->pon_cfg[i].pon_type)
+// 			return &pon->pon_cfg[i];
+// 	}
 
-	return NULL;
-}
+// 	return NULL;
+// }
 
 static void fs_sync_func(struct work_struct *work)
 {

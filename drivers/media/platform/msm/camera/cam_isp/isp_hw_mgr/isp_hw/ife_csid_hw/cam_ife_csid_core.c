@@ -3326,7 +3326,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_ife_csid_path_cfg                   *path_data;
 	const struct cam_ife_csid_pxl_reg_offset       *pxl_reg;
 	const struct cam_ife_csid_rdi_reg_offset       *rdi_reg;
-	uint32_t i;
+	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
+	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
 	uint32_t val, irq_status_ppp = 0;
 	bool fatal_err_detected = false;
 	bool need_dump_csid_err = false;

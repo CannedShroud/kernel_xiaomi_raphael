@@ -144,6 +144,7 @@ enum cam_req_mgr_link_state {
  * @in_q             : input request queue pointer
  * @validate_only    : Whether to validate only and/or update settings
  * @open_req_cnt     : Count of open requests yet to be serviced in the kernel.
+ * @last_applied_idx : indicates slot index last applied successfully.
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -153,6 +154,7 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_req_queue *in_q;
 	bool                          validate_only;
 	int32_t                       open_req_cnt;
+	int32_t                     last_applied_idx;
 };
 
 /**
@@ -366,6 +368,8 @@ struct cam_req_mgr_core_link {
 	bool                                 initial_skip;
 	bool                                 in_msync_mode;
 	int64_t                              initial_sync_req;
+	uint64_t                             sof_timestamp;
+	uint64_t                             prev_sof_timestamp;
 };
 
 /**

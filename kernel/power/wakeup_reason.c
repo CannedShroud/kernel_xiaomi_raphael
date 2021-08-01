@@ -52,10 +52,15 @@ static const char *default_irq_name = "(unnamed)";
 
 static struct kobject *kobj;
 
+#define MAX_WAKEUP_REASON_IRQS 32
+static int irq_list[MAX_WAKEUP_REASON_IRQS];
+static int irqcount;
 static bool capture_reasons;
 static bool suspend_abort;
 static bool abnormal_wake;
 static char non_irq_wake_reason[MAX_SUSPEND_ABORT_LEN];
+static struct kobject *wakeup_reason;
+static DEFINE_SPINLOCK(resume_reason_lock);
 
 static ktime_t last_monotime; /* monotonic time before last suspend */
 static ktime_t curr_monotime; /* monotonic time after last suspend */
@@ -69,6 +74,7 @@ static void init_node(struct wakeup_irq_node *p, int irq)
 	INIT_LIST_HEAD(&p->siblings);
 
 	p->irq = irq;
+	spin_lock(&resume_reason_lock);
 	desc = irq_to_desc(irq);
 	if (desc && desc->action && desc->action->name)
 		p->irq_name = desc->action->name;
@@ -214,6 +220,49 @@ static void __log_abort_or_abnormal_wake(bool abort, const char *fmt,
 	vsnprintf(non_irq_wake_reason, MAX_SUSPEND_ABORT_LEN, fmt, args);
 
 	spin_unlock_irqrestore(&wakeup_reason_lock, flags);
+}
+
+/*
+ * logs all the wake up reasons to the kernel
+ * stores the irqs to expose them to the userspace via sysfs
+ */
+void log_wakeup_reason(int irq)
+{
+	struct irq_desc *desc;
+        unsigned long flags;
+
+	desc = irq_to_desc(irq);
+	if (desc && desc->action && desc->action->name)
+		printk(KERN_INFO "Resume caused by IRQ %d, %s\n", irq,
+				desc->action->name);
+	else
+		printk(KERN_INFO "Resume caused by IRQ %d\n", irq);
+
+	spin_lock_irqsave(&resume_reason_lock, flags);
+	if (irqcount == MAX_WAKEUP_REASON_IRQS) {
+		spin_unlock_irqrestore(&resume_reason_lock, flags);
+		printk(KERN_WARNING "Resume caused by more than %d IRQs\n",
+				MAX_WAKEUP_REASON_IRQS);
+		return;
+	}
+
+	irq_list[irqcount++] = irq;
+	spin_unlock_irqrestore(&resume_reason_lock, flags);
+}
+
+int check_wakeup_reason(int irq)
+{
+	int irq_no;
+	int ret = false;
+
+	spin_lock(&resume_reason_lock);
+	for (irq_no = 0; irq_no < irqcount; irq_no++)
+		if (irq_list[irq_no] == irq) {
+			ret = true;
+			break;
+	}
+	spin_unlock(&resume_reason_lock);
+	return ret;
 }
 
 void log_suspend_abort_reason(const char *fmt, ...)

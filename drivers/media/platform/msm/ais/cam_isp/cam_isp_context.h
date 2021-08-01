@@ -173,7 +173,6 @@ struct cam_isp_context_state_monitor {
  *                     information for last applied, reported and bufdone.
  *
  *@last_applied_req_id:   Last applied request id
- *@last_bufdone_req_id:   Last bufdone request id
  *@reported_req_id:       Last reported request id to userspace
  *@last_applied_time_stamp: Last applied request time stamp information
  *@last_bufdone_time_stamp  Last bufdone request time stamp information
@@ -183,7 +182,6 @@ struct cam_isp_context_state_monitor {
 
 struct cam_isp_context_req_id_info {
 	int64_t                          last_applied_req_id;
-	int64_t                          last_bufdone_req_id;
 	int64_t                          reported_req_id;
 	int64_t                          last_applied_time_stamp;
 	int64_t                          last_bufdone_time_stamp;

@@ -668,8 +668,8 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 			"Move active request %lld to pending list(cnt = %d) [bubble recovery], ctx %u",
 			 req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 	} else {
-		if (ctx_isp->req_info.reported_req_id < buf_done_req_id) {
-			ctx_isp->req_info.reported_req_id = buf_done_req_id;
+		if (ctx_isp->reported_req_id < buf_done_req_id) {
+			ctx_isp->reported_req_id = buf_done_req_id;
 			__cam_isp_ctx_send_sof_timestamp(ctx_isp,
 			buf_done_req_id, CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 		}
@@ -888,7 +888,6 @@ static int __cam_isp_ctx_notify_sof_in_activated_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
 			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld ctx %u",
@@ -1550,7 +1549,6 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
 			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -1724,7 +1722,6 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
 			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -2457,8 +2454,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
-		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -2674,7 +2669,6 @@ end:
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -2745,7 +2739,6 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",

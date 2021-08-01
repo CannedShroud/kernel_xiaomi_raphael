@@ -637,7 +637,7 @@
 			&dsi_sw43404_amoled_video_display
 			&dsi_sw43404_amoled_fhd_plus_cmd_display
 			&dsi_rm69299_visionox_amoled_vid_display
-			&dsi_dual_nt36850_truly_cmd_display>;
+			&dsi_dual_nt36850_truly_cmd_display
 			&dsi_ss_ea8074_fhd_cmd_display
 			&dsi_samsung_fhd_ea8076_cmd_display
 			&dsi_samsung_fhd_ea8076_f1_cmd_display

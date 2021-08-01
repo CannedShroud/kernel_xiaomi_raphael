@@ -1399,14 +1399,14 @@ static int ep_create_wakeup_source(struct epitem *epi)
 
 	if (!epi->ep->ws) {
 		event_name = kasprintf(GFP_KERNEL, "eventpoll-%s", current->comm);
-		epi->ep->ws = wakeup_source_register(event_name);
+		epi->ep->ws = wakeup_source_register(NULL, event_name);
 		kfree(event_name);
 		if (!epi->ep->ws)
 			return -ENOMEM;
 	}
 
 	ws_name = kasprintf(GFP_KERNEL, "%s-%s", epi->ffd.file->f_path.dentry->d_name.name, current->comm);
-	ws = wakeup_source_register(ws_name);
+	ws = wakeup_source_register(NULL, ws_name);
 	kfree(ws_name);
 	if (!ws)
 		return -ENOMEM;

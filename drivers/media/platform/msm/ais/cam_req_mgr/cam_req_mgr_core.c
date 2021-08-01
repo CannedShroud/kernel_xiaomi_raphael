@@ -740,6 +740,10 @@ static int __cam_req_mgr_check_sync_for_mslave(
 		return -EINVAL;
 	}
 
+	if (sync_link->prev_sof_timestamp)
+		sync_frame_duration = sync_link->sof_timestamp -
+			sync_link->prev_sof_timestamp;
+
 	if (link->is_master) {
 		rc = __cam_req_mgr_inject_delay(link->req.l_tbl, slot->idx);
 		if (rc) {

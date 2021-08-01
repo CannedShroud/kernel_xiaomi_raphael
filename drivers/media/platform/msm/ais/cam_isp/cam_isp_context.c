@@ -737,7 +737,6 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		CAM_DBG(CAM_REQ,
 			"Move active request %lld to free list(cnt = %d) [all fences done], ctx %u",
 			 req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
-		ctx_isp->req_info.last_bufdone_req_id = req->request_id;
 		ctx_isp->req_info.last_bufdone_time_stamp =
 			jiffies_to_msecs(jiffies);
 		__cam_isp_ctx_update_state_monitor_array(ctx_isp,
@@ -964,7 +963,6 @@ static int __cam_isp_ctx_notify_sof_in_activated_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 			notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -1678,7 +1676,6 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 			notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -1863,7 +1860,6 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 			notify.dev_hdl = ctx->dev_hdl;
 			notify.frame_id = ctx_isp->frame_id;
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
-			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 			notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -2417,7 +2413,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 			ctx->ctx_id,
 			ctx_isp->req_info.last_applied_req_id,
 			ctx_isp->req_info.reported_req_id,
-			ctx_isp->req_info.last_bufdone_req_id);
 		CAM_INFO_RATE_LIMIT_CUSTOM(CAM_ISP, 5, 20,
 			"current time:%lld last apply time:%lld, reported req time:%lld, buf done time:%lld",
 			jiffies_to_msecs(jiffies),
@@ -2639,7 +2634,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -2841,7 +2835,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -2913,7 +2906,6 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
-		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
@@ -3112,7 +3104,6 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	ctx_isp->init_received = false;
 	ctx_isp->req_info.reported_req_id = 0;
 	ctx_isp->req_info.last_applied_req_id = 0;
-	ctx_isp->req_info.last_bufdone_req_id = 0;
 	ctx_isp->req_info.last_applied_time_stamp = 0;
 	ctx_isp->req_info.last_bufdone_time_stamp = 0;
 	ctx_isp->req_info.last_reported_id_time_stamp = 0;
@@ -3176,7 +3167,6 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx_isp->split_acquire = false;
 	ctx_isp->req_info.reported_req_id = 0;
 	ctx_isp->req_info.last_applied_req_id = 0;
-	ctx_isp->req_info.last_bufdone_req_id = 0;
 	ctx_isp->req_info.last_applied_time_stamp = 0;
 	ctx_isp->req_info.last_bufdone_time_stamp = 0;
 	ctx_isp->req_info.last_reported_id_time_stamp = 0;
@@ -3967,7 +3957,6 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->req_info.reported_req_id = 0;
 	ctx_isp->req_info.last_applied_req_id = 0;
-	ctx_isp->req_info.last_bufdone_req_id = 0;
 	ctx_isp->req_info.last_applied_time_stamp = 0;
 	ctx_isp->req_info.last_bufdone_time_stamp = 0;
 	ctx_isp->req_info.last_reported_id_time_stamp = 0;
@@ -4362,7 +4351,6 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	ctx->active_req_cnt = 0;
 	ctx->req_info.reported_req_id = 0;
 	ctx->req_info.last_applied_req_id = 0;
-	ctx->req_info.last_bufdone_req_id = 0;
 	ctx->req_info.last_applied_time_stamp = 0;
 	ctx->req_info.last_bufdone_time_stamp = 0;
 	ctx->req_info.last_reported_id_time_stamp = 0;
